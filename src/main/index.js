@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../resources/logo.png?asset'
+import db from './database' // Import the database module
 
 function createWindow() {
   // Create the browser window.
@@ -9,11 +10,13 @@ function createWindow() {
     width: 900,
     height: 670,
     show: false,
+    title: 'الأيقونة للطباعة والإشهار',
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true, // Enable context isolation
+      nodeIntegration: false // Disable Node.js integration in the renderer process
     }
   })
 
@@ -35,6 +38,168 @@ function createWindow() {
   }
 }
 
+// ======================================================
+// IPC Endpoints for database operations
+ipcMain.handle('get-users', async () => {
+  try {
+    // Use the db object to query the database
+    const users = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM users', (err, rows) => {
+        if (err) {
+          reject(err) // Reject the promise if there's an error
+        } else {
+          resolve(rows) // Resolve with the query results
+        }
+      })
+    })
+    return users // Return the users to the renderer process
+  } catch (error) {
+    console.error('Error fetching users:', error)
+    throw error // Throw the error to the renderer process
+  }
+})
+
+ipcMain.handle('add-user', async (_, user) => {
+  try {
+    // Use the db object to insert the new user into the database
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO users (username, phone, password) VALUES (?, ?, ?)',
+        [user.username, user.phone, user.password],
+        (err) => {
+          if (err) {
+            reject(err) // Reject the promise if there's an error
+          } else {
+            resolve() // Resolve if the query is successful
+          }
+        }
+      )
+    })
+    console.log('User added successfully:', user)
+    return { success: true }
+  } catch (error) {
+    console.error('Error adding user:', error)
+    throw error // Throw the error to the renderer process
+  }
+})
+
+ipcMain.handle('check-user', async (_, user) => {
+  try {
+    const existingUser = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM users WHERE username = ? OR phone = ?',
+        [user.username, user.phone],
+        (err, row) => {
+          if (err) {
+            reject(err) // Reject the promise if there's an error
+          } else {
+            resolve(row) // Resolve with the query result
+          }
+        }
+      )
+    })
+
+    // If a user exists, return their details
+    if (existingUser) {
+      return { exists: true, user: existingUser }
+    } else {
+      return { exists: false }
+    }
+  } catch (error) {
+    console.error('Error checking user:', error)
+    throw error // Throw the error to the renderer process
+  }
+})
+
+// session object to store the current user session when logged in
+let session = null
+
+// Login handler
+ipcMain.handle('login', async (_, credentials) => {
+  try {
+    // Query the database to check if the user exists
+    const user = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM users WHERE username = ? AND password = ?',
+        [credentials.username, credentials.password],
+        (err, row) => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve(row)
+          }
+        }
+      )
+    })
+
+    if (user) {
+      // Create a session
+      session = { userId: user.user_id, username: user.username }
+      return { success: true, user: session }
+    } else {
+      return { success: false, message: 'Invalid username or password' }
+    }
+  } catch (error) {
+    console.error('Login error:', error)
+    throw error
+  }
+})
+
+// Logout handler
+ipcMain.handle('logout', async () => {
+  session = null // Clear the session
+  return { success: true }
+})
+
+// Get session handler
+ipcMain.handle('get-session', async () => {
+  return session // Return the current session
+})
+
+// delete user by id if exist
+ipcMain.handle('delete-user', async (_, userId) => {
+  try {
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM users WHERE user_id = ?', [userId], (err) => {
+        if (err) {
+          reject(err) // Reject the promise if there's an error
+        } else {
+          resolve() // Resolve if the query is successful
+        }
+      })
+    })
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    throw error // Throw the error to the renderer process
+  }
+})
+
+// update user if exist
+ipcMain.handle('update-user', async (_, user) => {
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET username = ?, phone = ?, password = ?, active = ? WHERE user_id = ?',
+        [user.username, user.phone, user.password, user.active ? 1 : 0, user.user_id],
+        (err) => {
+          if (err) {
+            reject(err) // Reject the promise if there's an error
+          } else {
+            resolve() // Resolve if the query is successful
+          }
+        }
+      )
+    })
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating user:', error)
+    throw error // Throw the error to the renderer process
+  }
+})
+
+// =====================================================
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -54,7 +219,7 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  app.on('activate', function () {
+  app.on('activate', () => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -69,6 +234,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
