@@ -15,6 +15,7 @@ function UsersTable() {
     const fetchUsers = async () => {
       try {
         const users = await window.api.getUsers()
+        console.log('users:', users)
         setUsers(users)
       } catch (error) {
         console.error('Failed to fetch users:', error)
@@ -43,38 +44,50 @@ function UsersTable() {
   const handleDelete = async (userId) => {
     // Show confirmation dialog
     const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'You will not be able to recover this user!',
+      title: 'هل أنت متأكد؟',
+      text: 'لن تتمكن من استعادة هذا المستخدم مرة اخرى!',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: 'نعم، احذفه!',
+      cancelButtonText: 'إلغاء'
     })
 
     // If the user confirms, delete the user
     if (result.isConfirmed) {
       try {
-        await window.api.deleteUser(userId) // Call the deleteUser function
-        const newUsers = users.filter((user) => user.user_id !== userId)
-        setUsers(newUsers)
+        const deleteResult = await window.api.deleteUser(userId) // Call the deleteUser function
 
-        // Show success message
-        Swal.fire({
-          icon: 'success',
-          title: 'Deleted!',
-          text: 'The user has been deleted.',
-          showConfirmButton: false,
-          timer: 1500 // Auto-close after 1.5 seconds
-        })
+        if (deleteResult.success) {
+          // Update the local state to remove the deleted user
+          const newUsers = users.filter((user) => user.user_id !== userId)
+          setUsers(newUsers)
+
+          // Show success message
+          Swal.fire({
+            icon: 'success',
+            title: 'تم الحذف!',
+            text: 'تم حذف المستخدم بنجاح.',
+            showConfirmButton: false,
+            timer: 1500 // Auto-close after 1.5 seconds
+          })
+        } else {
+          // Show error message if the user was not found
+          Swal.fire({
+            icon: 'error',
+            title: 'خطأ',
+            text: deleteResult.error || 'فشل في حذف المستخدم. يرجى المحاولة مرة أخرى.'
+          })
+        }
       } catch (error) {
         console.error('Failed to delete user:', error)
 
         // Show error message
         Swal.fire({
           icon: 'error',
-          title: 'Error',
-          text: 'Failed to delete user. Please try again.'
+          title: 'خطأ',
+          text: 'فشل في حذف المستخدم. يرجى المحاولة مرة أخرى.'
         })
       }
     }
@@ -84,13 +97,28 @@ function UsersTable() {
     const { value: formValues } = await Swal.fire({
       title: 'Edit User',
       html: `
-        <input type='text' id="swal-username" class="swal2-input" placeholder="Username" value="${user.username}">
-        <input type="tel" id="swal-phone" class="swal2-input" placeholder="Phone" 
-          value="${user.phone}" minlength="10" maxlength="10">
+        <label for="swal-username" class="block text-right text-sm font-medium text-gray-700 mt-2">Username</label>
+        <input type="text" id="swal-username" class="swal2-input" placeholder="Username" value="${user.username}">
+
+        <label for="swal-email" class="block text-right text-sm font-medium text-gray-700 mt-2">Email</label>
+        <input type="email" id="swal-email" class="swal2-input" placeholder="Email" value="${user.email}">
+
+        <label for="swal-phone" class="block text-right text-sm font-medium text-gray-700 mt-2">Phone</label>
+        <input type="tel" id="swal-phone" class="swal2-input" placeholder="Phone" value="${user.phone}" minlength="10" maxlength="10">
+
+        <label for="swal-password" class="block text-right text-sm font-medium text-gray-700 mt-2">Password</label>
         <input id="swal-password" class="swal2-input" type="password" placeholder="Password" value="${user.password}">
+
+        <label for="swal-active" class="block text-right text-sm font-medium text-gray-700 mt-2">Status</label>
         <select id="swal-active" class="swal2-input">
-          <option value="true" ${user.active ? 'selected' : ''}>Active</option>
-          <option value="false" ${!user.active ? 'selected' : ''}>Non-Active</option>
+          <option value="true" ${user.is_active ? 'selected' : ''}>Active</option>
+          <option value="false" ${!user.is_active ? 'selected' : ''}>Inactive</option>
+        </select>
+
+        <label for="swal-account_type" class="block text-right text-sm font-medium text-gray-700 mt-2">Account Type</label>
+        <select id="swal-account_type" class="swal2-input">
+          <option value="admin" ${user.account_type === 'admin' ? 'selected' : ''}>Admin</option>
+          <option value="user" ${user.account_type === 'user' ? 'selected' : ''}>User</option>
         </select>
       `,
       focusConfirm: false,
@@ -99,28 +127,38 @@ function UsersTable() {
       preConfirm: () => {
         return {
           username: document.getElementById('swal-username').value,
+          email: document.getElementById('swal-email').value,
           phone: document.getElementById('swal-phone').value,
           password: document.getElementById('swal-password').value,
-          active: document.getElementById('swal-active').value === 'true'
+          is_active: document.getElementById('swal-active').value === 'true',
+          account_type: document.getElementById('swal-account_type').value
         }
       }
     })
 
     if (formValues) {
       try {
-        await window.api.updateUser(user.user_id, formValues)
+        const updateResult = await window.api.updateUser(user.user_id, formValues)
 
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u.user_id === user.user_id ? { ...u, ...formValues } : u))
-        )
+        if (updateResult.success) {
+          setUsers((prevUsers) =>
+            prevUsers.map((u) => (u.user_id === user.user_id ? { ...u, ...formValues } : u))
+          )
 
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'User details have been updated.',
-          showConfirmButton: false,
-          timer: 1500
-        })
+          Swal.fire({
+            icon: 'success',
+            title: 'Updated!',
+            text: 'User details have been updated.',
+            showConfirmButton: false,
+            timer: 1500
+          })
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Update Failed',
+            text: updateResult.error || 'Could not update the user. Please try again.'
+          })
+        }
       } catch (error) {
         console.error('Failed to update user:', error)
         Swal.fire({
@@ -131,7 +169,6 @@ function UsersTable() {
       }
     }
   }
-
   return (
     <div className="pt-4">
       <div className="w-full py-4 px-2 flex justify-between items-center">
@@ -152,7 +189,10 @@ function UsersTable() {
               <th className="px-4 py-2">ID</th>
               <th className="px-4 py-2">Username</th>
               <th className="px-4 py-2">Phone</th>
-              <th className="px-4 py-2">Password</th>
+              {/* <th className="px-4 py-2">Password</th> */}
+              <th className="px-4 py-2">email</th>
+              <th className="px-4 py-2">Account Type</th>
+              <th className="px-4 py-2">Created At</th>
               <th className="px-4 py-2">isActive</th>
               <th className="px-4 py-2">Action</th>
             </tr>
@@ -163,8 +203,23 @@ function UsersTable() {
                 <td className="px-4 py-2 text-center">{user.user_id}</td>
                 <td className="px-4 py-2 text-center">{user.username}</td>
                 <td className="px-4 py-2 text-center">{user.phone}</td>
-                <td className="px-4 py-2 text-center">{user.password}</td>
-                <td className="px-4 py-2 text-center">{user.active ? 'acive' : 'nonActive'}</td>
+                {/* <td className="px-4 py-2 text-center">{user.password}</td> */}
+                <td className="px-4 py-2 text-center">{user.email}</td>
+                <td className="px-4 py-2 text-center">{user.account_type}</td>
+                <td className="px-4 py-2 text-center rtl:text-left">
+                  {new Date(user.signup_date).toLocaleString()}
+                </td>
+                {/* <td className="px-4 py-2 text-center">
+                  {user.created_at ? user.created_at.split(' ')[1] : ''}
+                </td> */}
+
+                <td
+                  className={`px-4 py-2 text-center font-semibold 
+                  ${user.is_active ? 'text-green-700' : 'text-red-700'} `}
+                >
+                  {user.is_active ? 'Active' : 'Non-Active'}
+                </td>
+
                 <td className="px-4 py-2 text-center">
                   <div className="flex justify-center space-x-2">
                     <button
@@ -173,12 +228,12 @@ function UsersTable() {
                     >
                       <BiEdit />
                     </button>
-                    <button
+                    {/* <button
                       className="bg-blue-500 text-white px-2 py-1 rounded"
                       // onClick={() => handleDetails(user.user_id)}
                     >
                       <BiSolidDetail />
-                    </button>
+                    </button> */}
                     <button
                       className="bg-red-500 text-white px-2 py-1 rounded"
                       onClick={() => handleDelete(user.user_id)}

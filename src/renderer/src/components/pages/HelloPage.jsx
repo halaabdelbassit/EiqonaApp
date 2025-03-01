@@ -1,15 +1,22 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import Cookies from 'js-cookie'
 import HelloImg from '../../assets/hello_img.png'
 
 function HelloPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Redirect to login after 3 seconds
+    // Check if user session exists in cookies
+    // const session = Cookies.get('session')
+
     const timer = setTimeout(() => {
-      navigate('/home') // Change to "/home" if needed
+      // if (session) {
+      navigate('/home') // Redirect to home if logged in
+      // } else {
+      //   navigate('/login') // Redirect to login if not logged in
+      // }
     }, 2000)
 
     return () => clearTimeout(timer) // Cleanup timeout on unmount

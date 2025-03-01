@@ -1,26 +1,76 @@
 import { useState } from 'react'
 import HelloImg from '../../assets/hello_img.png'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline' // Import icons
-
+import Cookies from 'js-cookie' // Import js-cookie for cookie management
+import Swal from 'sweetalert2' // Import SweetAlert2 for notifications
+import { useNavigate } from 'react-router-dom'
 function Login() {
   const [showPassword, setShowPassword] = useState(false) // State to manage password visibility
+  const [username, setUsername] = useState('') // State for username input
+  const [password, setPassword] = useState('') // State for password input
+  const [loading, setLoading] = useState(false) // State for loading indicator
+  const navigate = useNavigate()
 
+  // Toggle password visibility
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
   }
 
-  // Example usage in a React component
-  const fetchUsers = async () => {
+  // Handle login
+  const handleLogin = async (e) => {
+    e.preventDefault() // Prevent form submission
+
+    if (!username || !password) {
+      Swal.fire({
+        icon: 'error',
+        title: 'خطأ',
+        text: 'يرجى إدخال اسم المستخدم وكلمة المرور'
+      })
+      return
+    }
+
+    setLoading(true) // Show loading indicator
+
     try {
-      const users = await window.api.getUsers() // Call the IPC endpoint
-      console.log('Users:', users)
+      // Call the authUser IPC method to authenticate the user
+      const result = await window.api.login({ username, password })
+
+      if (result.success) {
+        // Store session data in a cookie
+        Cookies.set('session', JSON.stringify(result.user), { expires: 1 }) // Expires in 1 day
+
+        // Show success message
+        Swal.fire({
+          icon: 'success',
+          title: 'تم تسجيل الدخول بنجاح',
+          showConfirmButton: false,
+          timer: 1500 // Auto-close after 1.5 seconds
+        })
+
+        // Redirect to the home page after a short delay
+        setTimeout(() => {
+          // window.location.href = '/home'
+          navigate('/home') // Use navigate to redirect
+        }, 1500)
+      } else {
+        // Show error message
+        Swal.fire({
+          icon: 'error',
+          title: 'خطأ',
+          text: result.message || 'فشل تسجيل الدخول'
+        })
+      }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      console.error('Login error:', error)
+      Swal.fire({
+        icon: 'error',
+        title: 'خطأ',
+        text: 'حدث خطأ أثناء تسجيل الدخول'
+      })
+    } finally {
+      setLoading(false) // Hide loading indicator
     }
   }
-
-  // Call the function when needed
-  fetchUsers()
 
   return (
     <div className="flex items-center justify-center min-h-screen">
@@ -40,6 +90,8 @@ function Login() {
           <input
             type="text"
             placeholder="اسم المستخدم"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="w-full h-10 border border-[#643C95] rounded-md px-3 focus:outline-none focus:ring-2 focus:ring-[#643C95]"
           />
 
@@ -48,6 +100,8 @@ function Login() {
             <input
               type={showPassword ? 'text' : 'password'} // Toggle input type
               placeholder="كلمة المرور"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full h-10 border border-[#643C95] rounded-md px-3 focus:outline-none focus:ring-2 focus:ring-[#643C95] pl-10" // Add padding for icon
             />
             {/* Show/Hide Password Icon */}
@@ -70,8 +124,12 @@ function Login() {
           </a>
 
           {/* Login Button */}
-          <button className="px-10 h-10 bg-[#643C95] text-white rounded-md hover:bg-[#532b7a] transition duration-300 mx-auto">
-            تسجيل الدخول
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="px-10 h-10 bg-[#643C95] text-white rounded-md hover:bg-[#532b7a] transition duration-300 mx-auto"
+          >
+            {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
           </button>
         </div>
       </div>

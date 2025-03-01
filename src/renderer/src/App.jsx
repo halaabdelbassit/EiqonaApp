@@ -41,7 +41,7 @@ const router = createHashRouter(
     <>
       {/* Auth Routes (No Sidebar/Header) */}
       <Route element={<AuthLayout />}>
-        <Route path="/" element={<HelloPage />} />
+        <Route path="/" index element={<HelloPage />} />
         <Route path="/login" element={<Login />} />
       </Route>
 

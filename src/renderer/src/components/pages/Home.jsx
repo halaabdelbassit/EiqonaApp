@@ -1,6 +1,8 @@
-function Home() {
-  console.log('Home Page', window.api)
+import Cookies from 'js-cookie'
 
+function Home() {
+
+  console.log('Home Page', Cookies.get('session'))
   return (
     <div>
       <h1 className="text-center font-bold text-3xl">Home Page</h1>

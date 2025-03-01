@@ -1,49 +1,29 @@
-const sqlite3 = require('sqlite3').verbose()
+const mysql = require('mysql2')
+require('dotenv').config() // Load environment variables from .env file
 
-// Open a database connection
-const db = new sqlite3.Database('./eiquonaApp.db', (err) => {
-  if (err) {
-    console.error('Error opening database', err)
-  } else {
-    console.log('Connected to the SQLite database.')
-    initializeDatabase()
-  }
+// Create a connection pool
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  waitForConnections: true, // Fix typo: waitForConnections
+  connectionLimit: 10,
+  queueLimit: 0
 })
 
-// Initialize the database (create tables if they don't exist)
-const initializeDatabase = () => {
-  db.run(
-    `
-    CREATE TABLE IF NOT EXISTS users (
-      user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL,
-      phone TEXT UNIQUE,
-      password TEXT NOT NULL,
-      active BOOLEAN DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      account_type BOOLEAN DEFAULT 0
-    );
-
-    
-    `,
-    (err) => {
+// Function to query the database
+const query = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    pool.query(sql, params, (err, results) => {
       if (err) {
-        console.error('Error creating table', err)
+        reject(err)
       } else {
-        console.log('Table created or already exists.')
+        resolve(results)
       }
-    }
-  )
+    })
+  })
 }
 
-export default db
-
-
-// create table if not exists orders(
-//   order_id INTEGER PRIMARY KEY AUTOINCREMENT,
-//   user_id INTEGER NOT NULL,
-//   order_type TEXT NOT NULL,
-//   order_status TEXT NOT NULL,
-//   order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-//   FOREIGN KEY (user_id) REFERENCES users (user_id)
-// );
+export default query

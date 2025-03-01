@@ -2,7 +2,10 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/logo.png?asset'
-import db from './database' // Import the database module
+import query from './database' // Import the database module
+import bcrypt from 'bcryptjs'
+
+import Cookies from 'js-cookie'
 
 function createWindow() {
   // Create the browser window.
@@ -40,161 +43,167 @@ function createWindow() {
 
 // ======================================================
 // IPC Endpoints for database operations
+// get users
+
 ipcMain.handle('get-users', async () => {
   try {
-    // Use the db object to query the database
-    const users = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM users', (err, rows) => {
-        if (err) {
-          reject(err) // Reject the promise if there's an error
-        } else {
-          resolve(rows) // Resolve with the query results
-        }
-      })
-    })
-    return users // Return the users to the renderer process
+    const users = await query('SELECT * FROM users')
+    return users
   } catch (error) {
-    console.error('Error fetching users:', error)
-    throw error // Throw the error to the renderer process
+    console.error('Failed to get users:', error)
   }
 })
 
-ipcMain.handle('add-user', async (_, user) => {
-  try {
-    // Use the db object to insert the new user into the database
-    await new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO users (username, phone, password) VALUES (?, ?, ?)',
-        [user.username, user.phone, user.password],
-        (err) => {
-          if (err) {
-            reject(err) // Reject the promise if there's an error
-          } else {
-            resolve() // Resolve if the query is successful
-          }
-        }
-      )
-    })
-    console.log('User added successfully:', user)
-    return { success: true }
-  } catch (error) {
-    console.error('Error adding user:', error)
-    throw error // Throw the error to the renderer process
-  }
-})
-
+// check user
 ipcMain.handle('check-user', async (_, user) => {
   try {
-    const existingUser = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM users WHERE username = ? OR phone = ?',
-        [user.username, user.phone],
-        (err, row) => {
-          if (err) {
-            reject(err) // Reject the promise if there's an error
-          } else {
-            resolve(row) // Resolve with the query result
-          }
-        }
-      )
-    })
+    const sql = `
+      SELECT username, email, phone FROM users 
+      WHERE username = ? OR email = ? OR phone = ?
+    `
+    const results = await query(sql, [user.username, user.email, user.phone])
 
-    // If a user exists, return their details
-    if (existingUser) {
-      return { exists: true, user: existingUser }
-    } else {
-      return { exists: false }
+    if (results.length > 0) {
+      const duplicateFields = []
+      results.forEach((row) => {
+        if (row.username === user.username) duplicateFields.push('username')
+        if (row.email === user.email) duplicateFields.push('email')
+        if (row.phone === user.phone) duplicateFields.push('phone')
+      })
+
+      return { exists: true, duplicateFields }
     }
+
+    return { exists: false }
   } catch (error) {
     console.error('Error checking user:', error)
-    throw error // Throw the error to the renderer process
-  }
-})
-
-// session object to store the current user session when logged in
-let session = null
-
-// Login handler
-ipcMain.handle('login', async (_, credentials) => {
-  try {
-    // Query the database to check if the user exists
-    const user = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM users WHERE username = ? AND password = ?',
-        [credentials.username, credentials.password],
-        (err, row) => {
-          if (err) {
-            reject(err)
-          } else {
-            resolve(row)
-          }
-        }
-      )
-    })
-
-    if (user) {
-      // Create a session
-      session = { userId: user.user_id, username: user.username }
-      return { success: true, user: session }
-    } else {
-      return { success: false, message: 'Invalid username or password' }
-    }
-  } catch (error) {
-    console.error('Login error:', error)
     throw error
   }
 })
 
-// Logout handler
-ipcMain.handle('logout', async () => {
-  session = null // Clear the session
-  return { success: true }
-})
-
-// Get session handler
-ipcMain.handle('get-session', async () => {
-  return session // Return the current session
-})
-
-// delete user by id if exist
-ipcMain.handle('delete-user', async (_, userId) => {
+// create user
+ipcMain.handle('create-user', async (_, user) => {
   try {
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM users WHERE user_id = ?', [userId], (err) => {
-        if (err) {
-          reject(err) // Reject the promise if there's an error
-        } else {
-          resolve() // Resolve if the query is successful
-        }
-      })
-    })
-    return { success: true }
+    const hashedPassword = await bcrypt.hash(user.password, 10)
+
+    const sql = `
+      INSERT INTO users (username, password, phone, email, account_type, is_active, signup_date)
+      VALUES (?, ?, ?, ?, ?, ?, NOW())
+    `
+    const result = await query(sql, [
+      user.username,
+      hashedPassword,
+      user.phone,
+      user.email,
+      user.account_type,
+      user.is_active || true // Default to true if not provided
+    ])
+
+    if (result.affectedRows === 1) {
+      return { success: true }
+    } else {
+      return { success: false }
+    }
   } catch (error) {
-    console.error('Error deleting user:', error)
-    throw error // Throw the error to the renderer process
+    console.error('Failed to create user:', error)
+    throw error
   }
 })
 
-// update user if exist
-ipcMain.handle('update-user', async (_, user) => {
+// delete user
+ipcMain.handle('delete-user', async (_, userId) => {
   try {
-    await new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE users SET username = ?, phone = ?, password = ?, active = ? WHERE user_id = ?',
-        [user.username, user.phone, user.password, user.active ? 1 : 0, user.user_id],
-        (err) => {
-          if (err) {
-            reject(err) // Reject the promise if there's an error
-          } else {
-            resolve() // Resolve if the query is successful
-          }
-        }
-      )
-    })
-    return { success: true }
+    const sql = 'DELETE FROM users WHERE user_id = ?'
+    const result = await query(sql, [userId])
+
+    if (result.affectedRows === 1) {
+      return { success: true, message: 'User deleted successfully' }
+    } else {
+      return { success: false, error: 'User not found' }
+    }
   } catch (error) {
-    console.error('Error updating user:', error)
-    throw error // Throw the error to the renderer process
+    console.error('Failed to delete user:', error)
+    throw error
+  }
+})
+
+// update user
+ipcMain.handle('update-user', async (_, userData) => {
+  try {
+    const { userId, ...user } = userData
+
+    // Hash the password only if it's provided
+    let hashedPassword = user.password
+    if (user.password) {
+      hashedPassword = await bcrypt.hash(user.password, 10)
+    }
+
+    const sql = `
+      UPDATE users 
+      SET username = ?, email = ?, phone = ?, password = ?, account_type = ?, is_active = ?
+      WHERE user_id = ?
+    `
+    const result = await query(sql, [
+      user.username,
+      user.email,
+      user.phone,
+      hashedPassword,
+      user.account_type,
+      user.is_active,
+      userId
+    ])
+
+    if (result.affectedRows === 1) {
+      return { success: true, message: 'User updated successfully' }
+    } else {
+      return { success: false, error: 'User not found' }
+    }
+  } catch (error) {
+    console.error('Failed to update user:', error)
+    throw error
+  }
+})
+
+// login user & session creation
+ipcMain.handle('login', async (_, credentials) => {
+  try {
+    const [user] = await query('SELECT * FROM users WHERE username = ? and is_active = 1', [
+      credentials.username
+    ])
+    if (!user) {
+      return { error: 'User not found' }
+    }
+
+    const isMatch = await bcrypt.compare(credentials.password, user.password)
+    if (!isMatch) {
+      return { error: 'Invalid password' }
+    }
+
+    const session = {
+      user_id: user.user_id,
+      username: user.username,
+      email: user.email,
+      account_type: user.account_type
+    }
+
+    Cookies.set('session', session, {
+      expires: new Date(Date.now() + 4 * 60 * 60 * 1000).getTime() / 1000
+    }) // Set session cookie for 4h
+
+    return user
+  } catch (error) {
+    console.error('Failed to login:', error)
+  }
+})
+
+
+// get session
+ipcMain.handle('get-session', async () => {
+  try {
+    const session = Cookies.get('session')
+    return session
+  } catch (error) {
+    console.error('Failed to get session:', error)
   }
 })
 
