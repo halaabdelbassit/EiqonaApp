@@ -4,8 +4,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/logo.png?asset'
 import query from './database' // Import the database module
 import bcrypt from 'bcryptjs'
-
-import Cookies from 'js-cookie'
+import Store from 'electron-store'
+// import Cookies from 'js-cookie'
 
 function createWindow() {
   // Create the browser window.
@@ -167,18 +167,20 @@ ipcMain.handle('update-user', async (_, userData) => {
 // login user & session creation
 ipcMain.handle('login', async (_, credentials) => {
   try {
-    const [user] = await query('SELECT * FROM users WHERE username = ? and is_active = 1', [
+    const [user] = await query('SELECT * FROM users WHERE username = ? AND is_active = 1', [
       credentials.username
     ])
+
     if (!user) {
-      return { error: 'User not found' }
+      return { success: false, error: 'User not found' }
     }
 
     const isMatch = await bcrypt.compare(credentials.password, user.password)
     if (!isMatch) {
-      return { error: 'Invalid password' }
+      return { success: false, error: 'Invalid password' }
     }
 
+    // Create session data
     const session = {
       user_id: user.user_id,
       username: user.username,
@@ -186,24 +188,14 @@ ipcMain.handle('login', async (_, credentials) => {
       account_type: user.account_type
     }
 
-    Cookies.set('session', session, {
-      expires: new Date(Date.now() + 4 * 60 * 60 * 1000).getTime() / 1000
-    }) // Set session cookie for 4h
+    // Save session data using electron-store
+    const store = new Store()
+    store.set('session', session)
 
-    return user
+    return { success: true, session }
   } catch (error) {
     console.error('Failed to login:', error)
-  }
-})
-
-
-// get session
-ipcMain.handle('get-session', async () => {
-  try {
-    const session = Cookies.get('session')
-    return session
-  } catch (error) {
-    console.error('Failed to get session:', error)
+    return { success: false, error: 'Login failed. Please try again later.' }
   }
 })
 

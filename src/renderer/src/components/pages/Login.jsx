@@ -4,6 +4,11 @@ import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline' // Import ic
 import Cookies from 'js-cookie' // Import js-cookie for cookie management
 import Swal from 'sweetalert2' // Import SweetAlert2 for notifications
 import { useNavigate } from 'react-router-dom'
+
+import Store from 'electron-store'
+
+// const store = new Store();
+
 function Login() {
   const [showPassword, setShowPassword] = useState(false) // State to manage password visibility
   const [username, setUsername] = useState('') // State for username input
@@ -32,12 +37,12 @@ function Login() {
     setLoading(true) // Show loading indicator
 
     try {
-      // Call the authUser IPC method to authenticate the user
+      // Call the login IPC method to authenticate the user
       const result = await window.api.login({ username, password })
 
       if (result.success) {
         // Store session data in a cookie
-        Cookies.set('session', JSON.stringify(result.user), { expires: 1 }) // Expires in 1 day
+        Cookies.set('session', JSON.stringify(result.session), { expires: 1 }) // Expires in 1 day
 
         // Show success message
         Swal.fire({
@@ -49,7 +54,6 @@ function Login() {
 
         // Redirect to the home page after a short delay
         setTimeout(() => {
-          // window.location.href = '/home'
           navigate('/home') // Use navigate to redirect
         }, 1500)
       } else {
@@ -57,7 +61,7 @@ function Login() {
         Swal.fire({
           icon: 'error',
           title: 'خطأ',
-          text: result.message || 'فشل تسجيل الدخول'
+          text: result.error || 'فشل تسجيل الدخول'
         })
       }
     } catch (error) {

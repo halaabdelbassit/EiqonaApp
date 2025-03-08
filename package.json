@@ -24,6 +24,7 @@
     "@tailwindcss/vite": "^4.0.3",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.7",
+    "electron-store": "^10.0.1",
     "electron-updater": "^6.1.7",
     "formik": "^2.4.6",
     "framer-motion": "^12.4.2",
