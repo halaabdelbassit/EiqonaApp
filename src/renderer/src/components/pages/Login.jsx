@@ -5,9 +5,6 @@ import Cookies from 'js-cookie' // Import js-cookie for cookie management
 import Swal from 'sweetalert2' // Import SweetAlert2 for notifications
 import { useNavigate } from 'react-router-dom'
 
-import Store from 'electron-store'
-
-// const store = new Store();
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false) // State to manage password visibility

@@ -9,14 +9,14 @@ function HelloPage() {
 
   useEffect(() => {
     // Check if user session exists in cookies
-    // const session = Cookies.get('session')
+    const session = Cookies.get('session')
 
     const timer = setTimeout(() => {
-      // if (session) {
-      navigate('/home') // Redirect to home if logged in
-      // } else {
-      //   navigate('/login') // Redirect to login if not logged in
-      // }
+      if (session) {
+        navigate('/home') // Redirect to home if logged in
+      } else {
+        navigate('/login') // Redirect to login if not logged in
+      }
     }, 2000)
 
     return () => clearTimeout(timer) // Cleanup timeout on unmount

@@ -179,7 +179,7 @@ function UsersTable() {
           href="/newUser"
           onClick={() => navigate('/newUser')}
         >
-          Add User <BiPlusCircle />
+          إضافة مستخدم جديد <BiPlusCircle />
         </button>
       </div>
       <div className="overflow-x-auto sticky">
@@ -187,14 +187,14 @@ function UsersTable() {
           <thead className="bg-gray-300">
             <tr>
               <th className="px-4 py-2">ID</th>
-              <th className="px-4 py-2">Username</th>
-              <th className="px-4 py-2">Phone</th>
+              <th className="px-4 py-2">اسم المستخدم</th>
+              <th className="px-4 py-2">رقم الهاتف</th>
               {/* <th className="px-4 py-2">Password</th> */}
-              <th className="px-4 py-2">email</th>
-              <th className="px-4 py-2">Account Type</th>
-              <th className="px-4 py-2">Created At</th>
-              <th className="px-4 py-2">isActive</th>
-              <th className="px-4 py-2">Action</th>
+              {/* <th className="px-4 py-2">email</th> */}
+              <th className="px-4 py-2">نوع الحساب</th>
+              <th className="px-4 py-2">تاريخ الانشاء</th>
+              <th className="px-4 py-2">النشاط</th>
+              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -204,20 +204,16 @@ function UsersTable() {
                 <td className="px-4 py-2 text-center">{user.username}</td>
                 <td className="px-4 py-2 text-center">{user.phone}</td>
                 {/* <td className="px-4 py-2 text-center">{user.password}</td> */}
-                <td className="px-4 py-2 text-center">{user.email}</td>
+                {/* <td className="px-4 py-2 text-center">{user.email}</td> */}
                 <td className="px-4 py-2 text-center">{user.account_type}</td>
-                <td className="px-4 py-2 text-center rtl:text-left">
-                  {new Date(user.signup_date).toLocaleString()}
+                <td className="px-4 py-2 text-center">
+                  {new Date(user.signup_date).toLocaleDateString('fr-FR')}
                 </td>
-                {/* <td className="px-4 py-2 text-center">
-                  {user.created_at ? user.created_at.split(' ')[1] : ''}
-                </td> */}
-
                 <td
                   className={`px-4 py-2 text-center font-semibold 
                   ${user.is_active ? 'text-green-700' : 'text-red-700'} `}
                 >
-                  {user.is_active ? 'Active' : 'Non-Active'}
+                  {user.is_active ? 'نشط' : 'غير نشط'}
                 </td>
 
                 <td className="px-4 py-2 text-center">

@@ -2,6 +2,7 @@ import Logo from '../../assets/logo_main.svg'
 import { HomeIcon, UsersIcon, CogIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import { Link, useLocation } from 'react-router-dom'
 import Cookies from 'js-cookie'
+import { BiExit } from 'react-icons/bi'
 
 function SideBar() {
   const location = useLocation()
@@ -87,7 +88,7 @@ function SideBar() {
             window.location.href = '/'
           }}
         >
-          Logout
+          <BiExit className="inline-block text-violet-800 h-6 w-6" />
         </button>
       </div>
     </div>

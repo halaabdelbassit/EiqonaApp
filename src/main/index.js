@@ -4,8 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/logo.png?asset'
 import query from './database' // Import the database module
 import bcrypt from 'bcryptjs'
-import Store from 'electron-store'
-// import Cookies from 'js-cookie'
+import Cookies from 'js-cookie'
 
 function createWindow() {
   // Create the browser window.
@@ -189,13 +188,33 @@ ipcMain.handle('login', async (_, credentials) => {
     }
 
     // Save session data using electron-store
-    const store = new Store()
-    store.set('session', session)
+    Cookies.set('session', JSON.stringify(session), { expires: 1 }) // Expires in 1 day
 
     return { success: true, session }
   } catch (error) {
     console.error('Failed to login:', error)
     return { success: false, error: 'Login failed. Please try again later.' }
+  }
+})
+
+// logout user & session deletion
+ipcMain.handle('logout', async () => {
+  try {
+    Cookies.remove('session')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to logout:', error)
+    return { success: false }
+  }
+})
+
+// get session
+ipcMain.handle('get-session', async () => {
+  try {
+    const session = Cookies.get('session') ? JSON.parse(Cookies.get('session')) : null
+    return session
+  } catch (error) {
+    console.error('Failed to get session:', error)
   }
 })
 
